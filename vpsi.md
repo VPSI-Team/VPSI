@@ -1,77 +1,77 @@
-# Automatické parkoviště – návrh software, use-casy, datový model, API, nasazení, bezpečnost, testování a otázky pro klienta
+# Automaticke parkoviste - navrh software, use-casy, datovy model, API, nasazeni, bezpecnost, testovani a otazky pro klienta
 
-## Exekutivní shrnutí
+## Exekutivni shrnuti
 
-Navrhovaný systém je **self‑service automatické parkoviště** řízené přes **SPZ (LPR)**, **závory**, **senzory obsazenosti**, **informační tabuli u vjezdu** a **platbu před výjezdem** (karta / mobil / QR). fileciteturn0file0 Základní návrh je postaven tak, aby šel rychle dodat jako **MVP s HW mocky**, ale současně měl jasnou cestu k produkční integraci (REST/MQTT, audit, bezpečnost, zálohy, monitoring). fileciteturn0file0 citeturn10search0turn0search4turn5search15
+Navrhovany system je **self-service automaticke parkoviste** rizene pres **SPZ (LPR)**, **zavory**, **senzory obsazenosti**, **informacni tabuli u vjezdu** a **platbu pred vyjezdem** (karta / mobil / QR). Zakladni navrh je postaven tak, aby sel rychle dodat jako **MVP s HW mocky**, ale soucasne mel jasnou cestu k produkcni integraci (REST/MQTT, audit, bezpecnost, zalohy, monitoring).
 
-Klíčová architektonická rozhodnutí, která je nutné od klienta získat brzy (jinak se návrh bude měnit a prodraží se):
+Klicova architektonicka rozhodnuti, ktera je nutne od klienta ziskat brzy (jinak se navrh bude menit a prodrazi se):
 
-- **Offline režim / edge vs. čistě centrální řízení** (co se má stát při výpadku internetu/centrálního backendu). fileciteturn0file0
-- **Platební integrace** (externí poskytovatel/terminály → dopad na PCI scope a provoz). fileciteturn0file0 citeturn2search3
-- **Retence a právní rámec pro SPZ a kamerové záznamy** (doby uchování, účely, audit). fileciteturn0file0 citeturn2search0turn2search6turn3search12
-- **Požadované SLA, počet parkovišť, počet zařízení, datové objemy** (nezadáno) – ovlivňuje HA, škálování, monitoring, náklady. fileciteturn0file0
+- **Offline rezim / edge vs. ciste centralni rizeni** (co se ma stat pri vypadku internetu/centralniho backendu).
+- **Platebni integrace** (externi poskytovatel/terminaly - dopad na PCI scope a provoz).
+- **Retence a pravni ramec pro SPZ a kamerove zaznamy** (doby uchovani, ucely, audit).
+- **Pozadovane SLA, pocet parkovist, pocet zarizeni, datove objemy** (nezadano) - ovlivnuje HA, skalovani, monitoring, naklady.
 
-Doporučení pro dodání “bez bolesti”:
+Doporuceni pro dodani "bez bolesti":
 
-- Realizovat jádro jako **stavový automat parkovací relace** (entry → active → paid → exit/closed) + **event log z HW** (i když zatím jen z mocků), aby se dobře řešily spory, audit a ladění. fileciteturn0file0 citeturn1search1turn1search8
-- Nasazení navrhnout ve variantách (on‑prem / cloud / hybrid), ale pro pilot a iterace preferovat **kontejnerizaci** a standardní orchestrace (rolling update, readiness/liveness, secrets/config). citeturn6search0turn6search8turn0search3turn0search9turn5search15
-- Telemetrii a statistiky držet jako **volitelný modul**, ale připravit API/DB tak, aby šly doplnit bez refaktoru (doménové metriky + technické metriky). fileciteturn0file0 citeturn1search19turn1search9turn1search3turn6search19
+- Realizovat jadro jako **stavovy automat parkovaci relace** (entry - active - paid - exit/closed) + **event log z HW** (i kdyz zatim jen z mocku), aby se dobre resily spory, audit a ladeni.
+- Nasazeni navrhnout ve variantach (on-prem / cloud / hybrid), ale pro pilot a iterace preferovat **kontejnerizaci** a standardni orchestrace (rolling update, readiness/liveness, secrets/config).
+- Telemetrii a statistiky drzet jako **volitelny modul**, ale pripravit API/DB tak, aby sly doplnit bez refaktoru (domenove metriky + technicke metriky).
 
-Výstup níže je připraven tak, aby byl přímo použitelný pro plánování sprintu: obsahuje use‑casy, návrh ER/DB, API kontrakty, varianty nasazení, bezpečnostní minimum, test plán, návrh metrik a především **strukturovaný seznam otázek pro klienta** včetně “formuláře”. citeturn7search1turn7search0turn11search6
+Vystup nize je pripraven tak, aby byl primo pouzitelny pro planovani sprintu: obsahuje use-casy, navrh ER/DB, API kontrakty, varianty nasazeni, bezpecnostni minimum, test plan, navrh metrik a predevsim **strukturovany seznam otazek pro klienta** vcetne "formulare".
 
-## Kontext, předpoklady a hranice projektu
+## Kontext, predpoklady a hranice projektu
 
-Systém má řídit automatizované parkoviště bez obsluhy, s identifikací vozidel pomocí SPZ (LPR), nepustit auto při plné kapacitě, sledovat obsazenost stání (senzor/kamera/smyčka), zobrazovat volná místa u vjezdu a evidovat čas příjezdu/odjezdu. fileciteturn0file0
+System ma ridit automatizovane parkoviste bez obsluhy, s identifikaci vozidel pomoci SPZ (LPR), nepustit auto pri plne kapacite, sledovat obsazenost stani (senzor/kamera/smycka), zobrazovat volna mista u vjezdu a evidovat cas prijezdu/odjezdu.
 
-Platba probíhá **před výjezdem** (terminál / mobilní aplikace), podporované metody jsou karta, mobil, QR; systém rozlišuje krátkodobé vs dlouhodobé parkování a může mít zvýhodněné tarify (rezidenti, zaměstnanci). fileciteturn0file0
+Platba probiha **pred vyjezdem** (terminal / mobilni aplikace), podporovane metody jsou karta, mobil, QR; system rozlisuje kratkodobe vs dlouhodobe parkovani a muze mit zvyhodnene tarify (rezidenti, zamestnanci).
 
-Bezpečnostně a právně: požadavek na GDPR, role‑based přístup do administrace (správce, technik), omezená retence kamerových záznamů, logování operací, nouzový výjezd při poruše. fileciteturn0file0 citeturn2search0turn2search6turn1search1
+Bezpecnostne a pravne: pozadavek na GDPR, role-based pristup do administrace (spravce, technik), omezena retence kamerovych zaznamu, logovani operaci, nouzovy vyjezd pri poruse.
 
-Technicky: backend na centrálním serveru, relační DB, komunikace se senzory přes REST/MQTT, webové UI, admin UI jen z interní sítě. fileciteturn0file0 citeturn10search0
+Technicky: backend na centralnim serveru, relacni DB, komunikace se senzory pres REST/MQTT, webove UI, admin UI jen z interni site.
 
-Analytika: denní/měsíční/roční statistiky (vytíženost, průměrná doba parkování, obrat), exporty dat, simulace vytížení. fileciteturn0file0
+Analytika: denni/mesicni/rocni statistiky (vytizenost, prumerna doba parkovani, obrat), exporty dat, simulace vytizeni.
 
-Nezadáno (musí být vyjasněno, jinak se návrh může zásadně změnit):
+Nezadano (musi byt vyjasneno, jinak se navrh muze zasadne zmenit):
 
-- Počet parkovišť a jejich topologie (1 lokalita vs síť), počet vjezdů/výjezdů, typy zařízení.
-- SLA/SLO (dostupnost, RTO/RPO), režim údržby, provozní podpora 24/7 (nezadáno, přitom systém běží 24/7). fileciteturn0file0
-- Objem dat a retenční politiky (parkovací relace, eventy, video), požadavky na anonymizaci/pseudonymizaci SPZ. citeturn2search0turn2search8turn3search12
-- Přesná tarifní pravidla (zaokrouhlování, free‑minutes, denní stropy, penalizace, ztracená SPZ apod.).
-- Platební poskytovatel a odpovědnost za PCI (nezadáno). citeturn2search3turn2search15
-- Mobilní aplikace: zda vůbec, a zda iOS (nezadáno). citeturn12search1
+- Pocet parkovist a jejich topologie (1 lokalita vs sit), pocet vjezdu/vyjezdu, typy zarizeni.
+- SLA/SLO (dostupnost, RTO/RPO), rezim udrzby, provozni podpora 24/7 (nezadano, pritom system bezi 24/7).
+- Objem dat a retencni politiky (parkovaci relace, eventy, video), pozadavky na anonymizaci/pseudonymizaci SPZ.
+- Presna tarifni pravidla (zaokrouhlovani, free-minutes, denni stropy, penalizace, ztracena SPZ apod.).
+- Platebni poskytovatel a odpovednost za PCI (nezadano).
+- Mobilni aplikace: zda vubec, a zda iOS (nezadano).
 
-## Klíčové funkce a detailní use‑casy
+## Klicove funkce a detailni use-casy
 
-Funkčně je systém nejlépe chápat jako **“orchestrátor parkovací relace”**: z HW událostí (LPR, závorová jednotka, senzory) sestaví pravdu o tom, kdo je uvnitř, kolik je volno, kolik má zaplatit, a zda smí ven. fileciteturn0file0
+Funkcne je system nejlepe chapat jako **"orchestrator parkovaci relace"**: z HW udalosti (LPR, zavorova jednotka, senzory) sestavi pravdu o tom, kdo je uvnitr, kolik je volno, kolik ma zaplatit, a zda smi ven.
 
-Následující tabulka je záměrně psaná tak, aby se z ní daly rovnou dělat backlogové itemy (MVP vs rozšíření je uvedeno v alternativách).
+Nasledujici tabulka je zamerne psana tak, aby se z ni daly rovnou delat backlogove itemy (MVP vs rozsireni je uvedeno v alternativach).
 
-### Use‑case tabulka
+### Use-case tabulka
 
-| Use‑case                                           | Aktéři                                  | Předpoklady                                                                                 | Hlavní scénář                                                                                                                                                          | Alternativy / výjimky                                                                                                                                                                              |
-| -------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vjezd vozidla na parkoviště                        | Řidič, LPR, závora                      | Parkoviště není plné; LPR vrátí SPZ s dostatečnou jistotou. fileciteturn0file0           | 1) LPR na vjezdu přečte SPZ. 2) Systém ověří kapacitu. 3) Vytvoří parkovací relaci s časem příjezdu. 4) Otevře závoru. fileciteturn0file0                           | A) Parkoviště plné → závoru neotevřít, zobrazit “plno” na tabuli. fileciteturn0file0 B) LPR nejisté/selže → fallback (ruční zadání na terminálu / obsluha hotline / “guest ticket”) – nezadáno. |
-| Zobrazení obsazenosti u vjezdu                     | Řidič, informační tabule, senzory       | Senzory poskytují obsazenost per stání nebo agregovaně. fileciteturn0file0               | 1) Systém průběžně počítá volná místa. 2) Publikuje číslo na informační tabuli. fileciteturn0file0                                                                  | A) Porucha části senzorů → přepnout na “kapacita minus aktivní relace” (méně přesné). B) Tabule offline → logovat a alertovat.                                                                     |
-| Parkování do vyhrazených míst (EV/ZTP/car‑sharing) | Řidič, admin, senzory                   | Místa mají typ; pravidla pro oprávnění jsou definována (nezadáno). fileciteturn0file0    | 1) Systém eviduje typy stání. 2) (Volitelné) při detekci obsazení vyhrazeného místa vozidlem bez oprávnění vytvoří incident. fileciteturn0file0                     | A) Vyhodnocení oprávnění může být pouze “reporting” bez sankcí (MVP). B) Napojení na registr oprávnění (rezidenti, zaměstnanci) – nezadáno.                                                        |
-| Zahájení platby podle SPZ                          | Řidič, platební terminál / web, backend | Existuje aktivní relace pro SPZ; tarif je znám. fileciteturn0file0                       | 1) Řidič zadá/načte SPZ / QR. 2) Backend spočítá cenu dle tarifu a doby. 3) Vytvoří “payment intent”. 4) Terminál/prohlížeč provede platbu. fileciteturn0file0      | A) SPZ nenalezena → nabídnout “vyhledat podle času/vjezdu” (nezadáno). B) Tarifní pravidla složitá → tarifní engine s verzováním (doporučeno).                                                     |
-| Platba kartou na terminálu                         | Řidič, terminál, payment provider       | Terminál je integrován; neukládáme PAN; řeší se PCI scope (nezadáno). fileciteturn0file0 | 1) Terminál odešle požadavek na částku. 2) Provider vrátí výsledek. 3) Backend označí relaci jako “paid”. fileciteturn0file0                                        | A) Platba fail → relace zůstává “active”, nabídnout retry / jinou metodu. B) Refundace/storno – nezadáno (nutné doplnit). citeturn2search3                                                      |
-| Platba přes mobilní aplikaci / QR                  | Řidič, mobilní web/app, backend         | Mobilní kanál existuje (nezadáno); identifikace relace QR / SPZ. fileciteturn0file0      | 1) Řidič otevře QR link / app. 2) Ověří relaci. 3) Zaplatí (platební brána). 4) Backend označí “paid”. fileciteturn0file0                                           | A) Bez mobilní aplikace: web (PWA) jako MVP. B) Nativní Android až pokud bude potřeba (nezadáno). citeturn12search1turn12search0                                                               |
-| Výjezd vozidla                                     | Řidič, LPR, závora                      | Relace je paid nebo má nárok na bezplatný výjezd; LPR přečte SPZ. fileciteturn0file0     | 1) LPR na výjezdu čte SPZ. 2) Backend ověří “paid” a časový limit po platbě. 3) Otevře závoru. 4) Uzavře relaci s časem odjezdu. fileciteturn0file0                 | A) Paid vypršel (timeout) → dopočítat doplatek. B) LPR fail → fallback (QR z terminálu, ruční ověření) – nezadáno.                                                                                 |
-| Nouzový výjezd při poruše                          | Řidič, technik, závora                  | Nastane porucha, musí být umožněn výjezd. fileciteturn0file0                             | 1) Technik aktivuje “fail‑open režim” (časově omezený). 2) Systém loguje operaci. 3) Výjezd se povolí bez platební kontroly. fileciteturn0file0                     | A) Edge režim: lokální řídicí jednotka otevře bez backendu (nezadáno). B) Pozdější doúčtování/incidenty – nezadáno.                                                                                |
-| Správa tarifů                                      | Správce                                 | Existuje admin přístup s RBAC. fileciteturn0file0                                        | 1) Správce založí tarifní plán/verzi. 2) Nastaví pravidla. 3) Aktivuje od data.                                                                                        | A) Tarifní změny se musí auditovat a verzovat (doporučeno). citeturn1search1                                                                                                                    |
-| Správa zařízení a jejich stavu                     | Technik                                 | Zařízení jsou evidována; periodicky hlásí heartbeat.                                        | 1) Technik registruje zařízení (typ, protokol). 2) Sleduje last‑seen a chyby. 3) Spouští diagnostiku.                                                                  | A) V MVP pouze evidence a ruční status. B) V produkci automatické alerty a metriky. citeturn1search19turn6search3                                                                              |
-| Audit a dohledatelnost operací                     | Správce, auditor                        | Logy a audit trail jsou povinné. fileciteturn0file0                                      | 1) Každá admin akce vytvoří audit záznam. 2) HW eventy se ukládají (alespoň metadata). 3) Lze dohledat spor (čas, SPZ, platba, otevření závory). fileciteturn0file0 | A) Retence musí odpovídat GDPR a interním pravidlům; SPZ je osobní údaj (v CZ praxi explicitně potvrzováno). citeturn2search0turn3search12turn1search1                                        |
-| Reporting a export dat                             | Správce, finance                        | Statistiky jsou požadovány; export formát nezadán. fileciteturn0file0                    | 1) Systém generuje denní/měsíční/roční přehledy. 2) Umožní export (CSV/XLSX/API). fileciteturn0file0                                                                | A) Automatická distribuce e‑mailem – nezadáno. B) Simulace vytížení – samostatný modul. fileciteturn0file0                                                                                      |
+| Use-case | Akteri | Predpoklady | Hlavni scenar | Alternativy / vyjimky |
+|----------|--------|-------------|---------------|----------------------|
+| Vjezd vozidla na parkoviste | Ridic, LPR, zavora | Parkoviste neni plne; LPR vrati SPZ s dostatecnou jistotou. | 1) LPR na vjezdu precte SPZ. 2) System overi kapacitu. 3) Vytvori parkovaci relaci s casem prijezdu. 4) Otevre zavoru. | A) Parkoviste plne - zavoru neotevrit, zobrazit "plno" na tabuli. B) LPR nejiste/selze - fallback (rucni zadani na terminalu / obsluha hotline / "guest ticket") - nezadano. |
+| Zobrazeni obsazenosti u vjezdu | Ridic, informacni tabule, senzory | Senzory poskytuji obsazenost per stani nebo agregovane. | 1) System prubezne pocita volna mista. 2) Publikuje cislo na informacni tabuli. | A) Porucha casti senzoru - prepnout na "kapacita minus aktivni relace" (mene presne). B) Tabule offline - logovat a alertovat. |
+| Parkovani do vyhrazenych mist (EV/ZTP/car-sharing) | Ridic, admin, senzory | Mista maji typ; pravidla pro opravneni jsou definovana (nezadano). | 1) System eviduje typy stani. 2) (Volitelne) pri detekci obsazeni vyhrazeneho mista vozidlem bez opravneni vytvori incident. | A) Vyhodnoceni opravneni muze byt pouze "reporting" bez sankci (MVP). B) Napojeni na registr opravneni (rezidenti, zamestnanci) - nezadano. |
+| Zahajeni platby podle SPZ | Ridic, platebni terminal / web, backend | Existuje aktivni relace pro SPZ; tarif je znam. | 1) Ridic zada/nacte SPZ / QR. 2) Backend spocita cenu dle tarifu a doby. 3) Vytvori "payment intent". 4) Terminal/prohlizec provede platbu. | A) SPZ nenalezena - nabidnout "vyhledat podle casu/vjezdu" (nezadano). B) Tarifni pravidla slozita - tarifni engine s verzovanim (doporuceno). |
+| Platba kartou na terminalu | Ridic, terminal, payment provider | Terminal je integrovan; neukladame PAN; resi se PCI scope (nezadano). | 1) Terminal odesle pozadavek na castku. 2) Provider vrati vysledek. 3) Backend oznaci relaci jako "paid". | A) Platba fail - relace zustava "active", nabidnout retry / jinou metodu. B) Refundace/storno - nezadano (nutne doplnit). |
+| Platba pres mobilni aplikaci / QR | Ridic, mobilni web/app, backend | Mobilni kanal existuje (nezadano); identifikace relace QR / SPZ. | 1) Ridic otevre QR link / app. 2) Overi relaci. 3) Zaplati (platebni brana). 4) Backend oznaci "paid". | A) Bez mobilni aplikace: web (PWA) jako MVP. B) Nativni Android az pokud bude potreba (nezadano). |
+| Vyjezd vozidla | Ridic, LPR, zavora | Relace je paid nebo ma narok na bezplatny vyjezd; LPR precte SPZ. | 1) LPR na vyjezdu cte SPZ. 2) Backend overi "paid" a casovy limit po platbe. 3) Otevre zavoru. 4) Uzavre relaci s casem odjezdu. | A) Paid vyprsel (timeout) - dopocitat doplatek. B) LPR fail - fallback (QR z terminalu, rucni overeni) - nezadano. |
+| Nouzovy vyjezd pri poruse | Ridic, technik, zavora | Nastane porucha, musi byt umoznen vyjezd. | 1) Technik aktivuje "fail-open rezim" (casove omezeny). 2) System loguje operaci. 3) Vyjezd se povoli bez platebni kontroly. | A) Edge rezim: lokalni ridici jednotka otevre bez backendu (nezadano). B) Pozdejsi douctovani/incidenty - nezadano. |
+| Sprava tarifu | Spravce | Existuje admin pristup s RBAC. | 1) Spravce zalozi tarifni plan/verzi. 2) Nastavi pravidla. 3) Aktivuje od data. | A) Tarifni zmeny se musi auditovat a verzovat (doporuceno). |
+| Sprava zarizeni a jejich stavu | Technik | Zarizeni jsou evidovana; periodicky hlasi heartbeat. | 1) Technik registruje zarizeni (typ, protokol). 2) Sleduje last-seen a chyby. 3) Spousti diagnostiku. | A) V MVP pouze evidence a rucni status. B) V produkci automaticke alerty a metriky. |
+| Audit a dohledatelnost operaci | Spravce, auditor | Logy a audit trail jsou povinne. | 1) Kazda admin akce vytvori audit zaznam. 2) HW eventy se ukladaji (alespon metadata). 3) Lze dohledat spor (cas, SPZ, platba, otevreni zavory). | A) Retence musi odpovidat GDPR a internim pravidlum; SPZ je osobni udaj (v CZ praxi explicitne potvrzovano). |
+| Reporting a export dat | Spravce, finance | Statistiky jsou pozadovany; export format nezadan. | 1) System generuje denni/mesicni/rocni prehledy. 2) Umozni export (CSV/XLSX/API). | A) Automaticka distribuce e-mailem - nezadano. B) Simulace vytizeni - samostatny modul. |
 
-## Návrh datového modelu a PostgreSQL schéma
+## Navrh datoveho modelu a PostgreSQL schema
 
-Datový model je navržen tak, aby pokryl:
+Datovy model je navrzen tak, aby pokryl:
 
-- **operativu** (parkovací relace, platby, vjezdy/výjezdy), fileciteturn0file0
-- **zařízení a eventy** (HW integrace přes REST/MQTT, zatím mock), fileciteturn0file0 citeturn10search0
-- **audit a reporting** (logy, statistiky, export). fileciteturn0file0 citeturn1search1turn1search8
+- **operativu** (parkovaci relace, platby, vjezdy/vyjezdy),
+- **zarizeni a eventy** (HW integrace pres REST/MQTT, zatim mock),
+- **audit a reporting** (logy, statistiky, export).
 
-Pro flexibilní části (např. payloady z HW, případně tarifní pravidla) používá JSONB, který je v PostgreSQL standardně podporovaný a indexovatelný (GIN). citeturn4search1turn4search5
+Pro flexibilni casti (napr. payloady z HW, pripadne tarifni pravidla) pouziva JSONB, ktery je v PostgreSQL standardne podporovany a indexovatelny (GIN).
 
 ### ER diagram
 
@@ -179,26 +179,26 @@ erDiagram
   }
 ```
 
-### Tabulka entit a polí
+### Tabulka entit a poli
 
-| Entita            | Účel                                  | Klíčová pole (typ)                                                                                                                                                                |
-| ----------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parking_lot`     | Konfigurace parkoviště (kapacita, tz) | `id uuid`, `name text`, `capacity_total int`, `timezone text`, `is_active bool`, `created_at timestamptz`                                                                         |
-| `parking_spot`    | Stání + typ (standard/EV/ZTP/…)       | `id uuid`, `parking_lot_id uuid`, `code text`, `spot_type text`, `is_active bool`                                                                                                 |
-| `device`          | Evidence HW prvků (i mocků)           | `id uuid`, `parking_lot_id uuid`, `device_type text`, `protocol text`, `config jsonb`, `last_seen_at timestamptz`, `is_active bool`                                               |
-| `device_event`    | Nezměnitelný log HW událostí          | `id uuid`, `device_id uuid`, `event_type text`, `occurred_at timestamptz`, `idempotency_key text`, `payload jsonb`, `processing_status text`, `processed_at timestamptz`          |
-| `vehicle`         | Vozidlo identifikované SPZ            | `id uuid`, `plate_number text`, `country_code text`, `plate_hash text`, `created_at timestamptz`                                                                                  |
-| `parking_session` | Parkovací relace (entry→exit)         | `id uuid`, `parking_lot_id uuid`, `vehicle_id uuid`, `entry_at timestamptz`, `exit_at timestamptz`, `status text`, `total_amount numeric`, `currency text`, `paid_at timestamptz` |
-| `payment_intent`  | Stav platby a integrace na providera  | `id uuid`, `parking_session_id uuid`, `amount numeric`, `method text`, `provider_ref text`, `status text`, `created_at timestamptz`                                               |
-| `app_user`        | Admin uživatel mapovaný z IdP         | `id uuid`, `external_subject text`, `display_name text`, `role text`, `is_active bool`                                                                                            |
-| `audit_log`       | Auditní stopa admin akcí              | `id uuid`, `app_user_id uuid`, `action text`, `entity_type text`, `entity_id uuid`, `details jsonb`, `created_at timestamptz`                                                     |
+| Entita | Ucel | Klicova pole (typ) |
+|--------|------|-------------------|
+| `parking_lot` | Konfigurace parkoviste (kapacita, tz) | `id uuid`, `name text`, `capacity_total int`, `timezone text`, `is_active bool`, `created_at timestamptz` |
+| `parking_spot` | Stani + typ (standard/EV/ZTP/...) | `id uuid`, `parking_lot_id uuid`, `code text`, `spot_type text`, `is_active bool` |
+| `device` | Evidence HW prvku (i mocku) | `id uuid`, `parking_lot_id uuid`, `device_type text`, `protocol text`, `config jsonb`, `last_seen_at timestamptz`, `is_active bool` |
+| `device_event` | Nezmenitelny log HW udalosti | `id uuid`, `device_id uuid`, `event_type text`, `occurred_at timestamptz`, `idempotency_key text`, `payload jsonb`, `processing_status text`, `processed_at timestamptz` |
+| `vehicle` | Vozidlo identifikovane SPZ | `id uuid`, `plate_number text`, `country_code text`, `plate_hash text`, `created_at timestamptz` |
+| `parking_session` | Parkovaci relace (entry-exit) | `id uuid`, `parking_lot_id uuid`, `vehicle_id uuid`, `entry_at timestamptz`, `exit_at timestamptz`, `status text`, `total_amount numeric`, `currency text`, `paid_at timestamptz` |
+| `payment_intent` | Stav platby a integrace na providera | `id uuid`, `parking_session_id uuid`, `amount numeric`, `method text`, `provider_ref text`, `status text`, `created_at timestamptz` |
+| `app_user` | Admin uzivatel mapovany z IdP | `id uuid`, `external_subject text`, `display_name text`, `role text`, `is_active bool` |
+| `audit_log` | Auditni stopa admin akci | `id uuid`, `app_user_id uuid`, `action text`, `entity_type text`, `entity_id uuid`, `details jsonb`, `created_at timestamptz` |
 
-Poznámka k GDPR: SPZ může být osobní údaj, pokud je přiřaditelná konkrétní fyzické osobě; v českém kontextu byly publikovány materiály a rozhodnutí, kde je SPZ výslovně považována za osobní údaj. citeturn2search0turn3search12turn2search6
+Poznamka k GDPR: SPZ muze byt osobni udaj, pokud je priraditelna konkretni fyzicke osobe; v ceskem kontextu byly publikovany materialy a rozhodnuti, kde je SPZ vyslovne povazovana za osobni udaj.
 
-### Základní PostgreSQL schéma
+### Zakladni PostgreSQL schema
 
 ```sql
--- rozšíření (volitelné: uuid, crypto)
+-- rozsireni (volitelne: uuid, crypto)
 create extension if not exists "uuid-ossp";
 create extension if not exists pgcrypto;
 
@@ -296,28 +296,28 @@ create table audit_log (
 create index ix_audit_log_created_at on audit_log(created_at desc);
 ```
 
-Použití rozšíření `pgcrypto` (např. pro hash/šifrování vybraných hodnot) je v PostgreSQL standardní možnost. citeturn4search2turn4search14
+Pouziti rozsireni `pgcrypto` (napr. pro hash/sifrovani vybranych hodnot) je v PostgreSQL standardni moznost.
 
-Zálohování a obnova v PostgreSQL má standardní postupy (zálohy + WAL archiving pro PITR) a je vhodné je požadovat už od MVP prostředí, pokud má systém fungovat 24/7. citeturn0search4turn0search0
+Zalohovani a obnova v PostgreSQL ma standardni postupy (zalohy + WAL archiving pro PITR) a je vhodne je pozadovat uz od MVP prostredi, pokud ma system fungovat 24/7.
 
-## Návrh API kontraktů
+## Navrh API kontraktu
 
-API je navrženo primárně jako REST (snadné pro zařízení i FE) s tím, že pro admin dashboard lze volitelně přidat GraphQL (aby si UI tahalo přesně to, co potřebuje, a případně realtime přes subscriptions). citeturn7search5turn7search2turn12search3
+API je navrzeno primarne jako REST (snadne pro zarizeni i FE) s tim, ze pro admin dashboard lze volitelne pridat GraphQL (aby si UI tahalo presne to, co potrebuje, a pripadne realtime pres subscriptions).
 
 ### REST principy a dokumentace
 
-- Kontrakty publikovat přes OpenAPI (Swagger), aby šly generovat klienty, testy a validace. citeturn7search1turn7search0
-- Používat standardní HTTP statusy a významy dle HTTP Semantics a běžné praxe. citeturn7search3turn7search6
-- Chyby vracet jednotně (např. `application/problem+json`) a pro konflikty stavů (např. “už zaplaceno”) vracet 409. citeturn7search3turn7search6
+- Kontrakty publikovat pres OpenAPI (Swagger), aby sly generovat klienty, testy a validace.
+- Pouzivat standardni HTTP statusy a vyznamy dle HTTP Semantics a bezne praxe.
+- Chyby vracet jednotne (napr. `application/problem+json`) a pro konflikty stavu (napr. "uz zaplaceno") vracet 409.
 
-### Návrh endpointů
+### Navrh endpointu
 
-#### HW event ingestion (mock i budoucí reál)
+#### HW event ingestion (mock i budouci real)
 
 `POST /api/v1/hw/events`
 
-- Účel: Jednotný vstup pro všechny události (LPR read, barrier opened/closed, spot occupied/free, terminal payment result…).
-- Klíčové vlastnosti: **idempotence** (stejný event nesmí vytvořit duplicitní relaci/platbu), auditovatelnost (ukládá se `device_event`).
+- Ucel: Jednotny vstup pro vsechny udalosti (LPR read, barrier opened/closed, spot occupied/free, terminal payment result...).
+- Klicove vlastnosti: **idempotence** (stejny event nesmi vytvorit duplicitni relaci/platbu), auditovatelnost (uklada se `device_event`).
 
 ```json
 {
@@ -335,7 +335,7 @@ API je navrženo primárně jako REST (snadné pro zařízení i FE) s tím, že
 }
 ```
 
-Odpověď:
+Odpoved:
 
 ```json
 {
@@ -345,9 +345,9 @@ Odpověď:
 }
 ```
 
-Poznámka: pokud část HW komunikace poběží přes MQTT, je vhodné udržet stejný event model (topic → eventType + payload). MQTT je standardní pub/sub protokol vhodný pro IoT scénáře. citeturn10search0turn10search4
+Poznamka: pokud cast HW komunikace pobezi pres MQTT, je vhodne udrzet stejny event model (topic - eventType + payload). MQTT je standardni pub/sub protokol vhodny pro IoT scenare.
 
-#### Operativní API pro FE / terminál
+#### Operativni API pro FE / terminal
 
 `GET /api/v1/parking-lots/{lotId}/status`
 
@@ -363,7 +363,7 @@ Poznámka: pokud část HW komunikace poběží přes MQTT, je vhodné udržet s
 
 `POST /api/v1/parking-sessions/quote`
 
-- Účel: spočítat cenu “k teď” pro danou SPZ (pro terminál/mobil).
+- Ucel: spocitat cenu "k ted" pro danou SPZ (pro terminal/mobil).
 
 ```json
 { "plate": "1AB2345" }
@@ -376,7 +376,7 @@ Poznámka: pokud část HW komunikace poběží přes MQTT, je vhodné udržet s
   "now": "2026-02-16T12:36:00Z",
   "amount": 80.0,
   "currency": "CZK",
-  "pricingBreakdown": [{ "label": "časové parkovné", "amount": 80.0 }]
+  "pricingBreakdown": [{ "label": "casove parkovne", "amount": 80.0 }]
 }
 ```
 
@@ -400,7 +400,7 @@ Poznámka: pokud část HW komunikace poběží přes MQTT, je vhodné udržet s
 
 `POST /api/v1/payments/{paymentIntentId}/confirm`
 
-- Volá terminál / backend integrace po výsledku providera.
+- Vola terminal / backend integrace po vysledku providera.
 
 ```json
 {
@@ -413,17 +413,17 @@ Poznámka: pokud část HW komunikace poběží přes MQTT, je vhodné udržet s
 #### Admin API
 
 - `GET /api/v1/admin/sessions?from=&to=&plate=`
-- `POST /api/v1/admin/tariffs` (verzování, aktivace)
+- `POST /api/v1/admin/tariffs` (verzovani, aktivace)
 - `GET /api/v1/admin/devices` (stav, last seen)
 - `GET /api/v1/admin/audit`
 
-Autorizace doporučeně přes JWT bearer + OIDC/OAuth dle standardního postupu v backendu (validace tokenu v API) a pro webové UI OIDC code flow s PKCE. citeturn0search2turn0search15
+Autorizace doporucene pres JWT bearer + OIDC/OAuth dle standardniho postupu v backendu (validace tokenu v API) a pro webove UI OIDC code flow s PKCE.
 
-### Volitelně GraphQL pro dashboard a realtime
+### Volitelne GraphQL pro dashboard a realtime
 
-Pro admin dashboard lze přidat GraphQL, protože podporuje query/mutation/subscription model a subscriptions jsou standardní mechanismus pro realtime update (typicky přes WebSocket). citeturn7search5turn7search2turn12search3turn7search15
+Pro admin dashboard lze pridat GraphQL, protoze podporuje query/mutation/subscription model a subscriptions jsou standardni mechanismus pro realtime update (typicky pres WebSocket).
 
-Příklad schema záměru (zkráceno):
+Priklad schema zameru (zkraceno):
 
 ```graphql
 type Query {
@@ -436,297 +436,297 @@ type Subscription {
 }
 ```
 
-## Architektura řešení, varianty nasazení a bezpečnost
+## Architektura reseni, varianty nasazeni a bezpecnost
 
 ### Architektura komponent
 
-Logické komponenty (MVP → produkce):
+Logicke komponenty (MVP - produkce):
 
-- FE (web): veřejná část (platba/QR) + admin portál (interní síť). fileciteturn0file0
-- Backend: API + tarifní engine + payment orchestrace + správa zařízení + reporting.
-- DB: transakční data + audit/event log.
-- HW vrstva: v MVP mock services; v produkci adaptér (REST/MQTT) na reálné zařízení. fileciteturn0file0
-- Observabilita: logy, metriky, tracing (volitelné). citeturn1search19turn1search12
+- FE (web): verejna cast (platba/QR) + admin portal (interni sit).
+- Backend: API + tarifni engine + payment orchestrace + sprava zarizeni + reporting.
+- DB: transakcni data + audit/event log.
+- HW vrstva: v MVP mock services; v produkci adapter (REST/MQTT) na realne zarizeni.
+- Observabilita: logy, metriky, tracing (volitelne).
 
-Backendové background úlohy (např. retence dat, generování statistik, import/export) jsou v .NET standardně řešitelné přes hosted services. citeturn10search2turn10search14
+Backendove background ulohy (napr. retence dat, generovani statistik, import/export) jsou v .NET standardne resitelne pres hosted services.
 
-Konfigurace a secret management v kontejnerizovaném prostředí typicky využívají ConfigMaps/Secrets. citeturn0search9turn0search3
+Konfigurace a secret management v kontejnerizovanem prostredi typicky vyuzivaji ConfigMaps/Secrets.
 
-### Nasazení – možnosti a doporučení
+### Nasazeni - moznosti a doporuceni
 
-Níže je realistický výběr pro tento typ systému. Rozhodnutí má dopad na dostupnost 24/7 a řešení výpadků. fileciteturn0file0
+Nize je realisticky vyber pro tento typ systemu. Rozhodnuti ma dopad na dostupnost 24/7 a reseni vypadku.
 
-| Varianta              | Kdy dává smysl                                   | Typické plus                                                     | Typické mínus                                     |
-| --------------------- | ------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------- |
-| On‑prem (VM/metal)    | požadavek na lokální provoz, omezení cloudu      | plná kontrola, lokální latence                                   | vyšší náklady na HA, zálohy, monitoring, patching |
-| Cloud (AWS/Azure/GCP) | rychlé škálování, managed služby, iterace        | standardní well‑architected principy (security/reliability/cost) | závislost na konektivitě lokality, governance     |
-| Hybrid (edge + cloud) | parkoviště musí fungovat i při výpadku internetu | nejlepší UX pro řidiče, robustní provoz                          | vyšší komplexita (sync, konflikty)                |
+| Varianta | Kdy dava smysl | Typicke plus | Typicke minus |
+|----------|----------------|--------------|---------------|
+| On-prem (VM/metal) | pozadavek na lokalni provoz, omezeni cloudu | plna kontrola, lokalni latence | vyssi naklady na HA, zalohy, monitoring, patching |
+| Cloud (AWS/Azure/GCP) | rychle skalovani, managed sluzby, iterace | standardni well-architected principy (security/reliability/cost) | zavislost na konektivite lokality, governance |
+| Hybrid (edge + cloud) | parkoviste musi fungovat i pri vypadku internetu | nejlepsi UX pro ridice, robustni provoz | vyssi komplexita (sync, konflikty) |
 
-Well‑Architected rámce u velkých cloudů zdůrazňují systematický přístup přes pilíře typu security/reliability/cost a mají použitelné checklisty pro návrh. citeturn8search0turn8search1turn8search2
+Well-Architected ramce u velkych cloudu zduraznuji systematicky pristup pres pilire typu security/reliability/cost a maji pouzitelne checklisty pro navrh.
 
-**Doporučení (default):**
+**Doporuceni (default):**
 
-- Pro pilot/MVP: jednoduché nasazení (1–2 prostředí) s možností přechodu na K8s bez přepisu (tedy kontejnerizace už od začátku). Rolling updates jsou standardní mechanismus pro bezvýpadkové nasazování v orchestraci. citeturn6search8turn6search0
-- Pro produkci: pokud klient nepotřebuje striktní on‑prem a konektivita lokality je spolehlivá, je nejnižší operativní riziko využít **managed DB + orchestraci**; jinak hybrid. Zálohy a PITR pro PostgreSQL jsou standardní požadavek u 24/7 systému. citeturn0search4turn0search0
+- Pro pilot/MVP: jednoduche nasazeni (1-2 prostredi) s moznosti prechodu na K8s bez prepisu (tedy kontejnerizace uz od zacatku). Rolling updates jsou standardni mechanismus pro bezvypadkove nasazovani v orchestraci.
+- Pro produkci: pokud klient nepotrebuje striktni on-prem a konektivita lokality je spolehliva, je nejnizsi operativni riziko vyuzit **managed DB + orchestraci**; jinak hybrid. Zalohy a PITR pro PostgreSQL jsou standardni pozadavek u 24/7 systemu.
 
-### Bezpečnostní opatření
+### Bezpecnostni opatreni
 
-Bezpečnostní návrh je postaven na tom, že systém zpracovává osobní údaje (SPZ, případně video) a musí být auditovatelný. fileciteturn0file0 citeturn2search0turn3search12turn1search13
+Bezpecnostni navrh je postaven na tom, ze system zpracovava osobni udaje (SPZ, pripadne video) a musi byt auditovatelny.
 
 Autentizace a autorizace:
 
-- Admin přístup řešit přes OIDC (centrální IdP) a backend ověřuje JWT bearer tokeny; Microsoft dokumentace explicitně popisuje konfiguraci JWT a OIDC a doporučuje standardní postupy. citeturn0search2turn0search15
-- Role‑based a policy‑based autorizace pro akce typu “správce vs technik”, s minimem práv (“least privilege”). citeturn11search0turn11search4turn11search8
-- Rate limiting pro veřejné endpointy (quote/payment start) proti zneužití. citeturn5search7turn5search3
+- Admin pristup resit pres OIDC (centralni IdP) a backend overuje JWT bearer tokeny; Microsoft dokumentace explicitne popisuje konfiguraci JWT a OIDC a doporucuje standardni postupy.
+- Role-based a policy-based autorizace pro akce typu "spravce vs technik", s minimem prav ("least privilege").
+- Rate limiting pro verejne endpointy (quote/payment start) proti zneuziti.
 
-Šifrování a ochrana dat:
+Sifrovani a ochrana dat:
 
-- TLS pro komunikaci FE↔API i zařízení↔API (nebo přes gateway).
-- Citlivé hodnoty lze šifrovat na aplikační vrstvě; na DB lze použít kryptografické funkce (pgcrypto), ale ne jako náhradu za celkovou bezpečnostní architekturu. citeturn4search2turn11search15
-- Data Protection v .NET řeší správu a rotaci klíčů pro ochranu payloadů a má standardní mechanismus pro key management. citeturn11search1turn11search15
+- TLS pro komunikaci FE-API i zarizeni-API (nebo pres gateway).
+- Citlive hodnoty lze sifrovat na aplikacni vrstve; na DB lze pouzit kryptograficke funkce (pgcrypto), ale ne jako nahradu za celkovou bezpecnostni architekturu.
+- Data Protection v .NET resi spravu a rotaci klicu pro ochranu payloadu a ma standardni mechanismus pro key management.
 
-Audit, logování, monitoring:
+Audit, logovani, monitoring:
 
-- Bezpečnostní logy musí zahrnovat klíčové události (login, neúspěšné pokusy, změny tarifů, high‑value operace, nouzové režimy). OWASP zdůrazňuje, že bez logování/monitoringu nelze incidenty efektivně detekovat. citeturn1search1turn1search8
-- Logy standardizovat (strukturované), chránit před manipulací, definovat retenci a přístupy. citeturn1search1turn1search5
+- Bezpecnostni logy musi zahrnovat klicove udalosti (login, neuspesne pokusy, zmeny tarifu, high-value operace, nouzove rezimy). OWASP zduraznuje, ze bez logovani/monitoringu nelze incidenty efektivne detekovat.
+- Logy standardizovat (strukturovane), chranit pred manipulaci, definovat retenci a pristupy.
 
-Zálohy a obnova:
+Zalohy a obnova:
 
-- Zálohování a PITR pro PostgreSQL (base backup + archivace WAL) a pravidelný restore drill. citeturn0search4turn0search0
+- Zalohovani a PITR pro PostgreSQL (base backup + archivace WAL) a pravidelny restore drill.
 
-Kontejnerové prostředí:
+Kontejnerove prostredi:
 
-- Citlivé konfigurace držet v “secrets” a oddělit od image; logika je popsána v dokumentaci ke Kubernetes Secrets a ConfigMaps. citeturn0search3turn0search9
+- Citlive konfigurace drzet v "secrets" a oddelit od image; logika je popsana v dokumentaci ke Kubernetes Secrets a ConfigMaps.
 
 Platby:
 
-- Pokud systém pracuje s kartami přes terminál/PSP, cílem je minimalizovat PCI dopad (neukládat cardholder data, delegovat na certifikovaného poskytovatele). PCI DSS quick reference shrnuje zásady pro prostředí, kde se zpracovávají platební údaje. citeturn2search3turn2search15
+- Pokud system pracuje s kartami pres terminal/PSP, cilem je minimalizovat PCI dopad (neukladat cardholder data, delegovat na certifikovaneho poskytovatele). PCI DSS quick reference shrnuje zasady pro prostredi, kde se zpracovavaji platebni udaje.
 
-## Plán testování, mock HW, provozní režim a telemetrie
+## Plan testovani, mock HW, provozni rezim a telemetrie
 
 ### Test strategie
 
-Testy je vhodné členit podle vrstev a rizik:
+Testy je vhodne clenit podle vrstev a rizik:
 
-- Unit testy: tarifní engine (zaokrouhlení, free‑minutes, stropy), stavový automat relace, validace eventů, RBAC pravidla.
-- Integrační testy: DB integrace (migrace, indexy, transakce), idempotence event ingestion, výpočet obsazenosti. EF migrace jsou standardní mechanismus pro evoluci schématu. citeturn5search8turn5search1
-- Integrační testy s reálnou DB v CI: doporučit kontejnerovou DB přes entity["organization","Testcontainers","container testing project"] (PostgreSQL modul) – snižuje potřebu lokální instalace DB a dává realistické testy. citeturn9search3turn9search13
-- E2E testy: kritické cesty admin portálu a veřejného “plate→pay→exit” toku. entity["organization","Playwright","browser testing framework"] podporuje víc prohlížečů a .NET bindingy. citeturn9search0turn9search14
-- Bezpečnostní testy API: řídit se OWASP WSTG sekcí pro API testing (včetně GraphQL, pokud bude). citeturn13search7turn13search3
-- Zátěžové testy: pro vjezdy/výjezdy/platby (spike ráno/odpoledne), nástrojově je běžný k6 (má přímo API load testing guide). citeturn13search4turn13search2
+- Unit testy: tarifni engine (zaokrouhleni, free-minutes, stropy), stavovy automat relace, validace eventu, RBAC pravidla.
+- Integracni testy: DB integrace (migrace, indexy, transakce), idempotence event ingestion, vypocet obsazenosti. EF migrace jsou standardni mechanismus pro evoluci schematu.
+- Integracni testy s realnou DB v CI: doporucit kontejnerovou DB pres Testcontainers (PostgreSQL modul) - snizuje potrebu lokalni instalace DB a dava realisticke testy.
+- E2E testy: kriticke cesty admin portalu a verejneho "plate-pay-exit" toku. Playwright podporuje vic prohlizecu a .NET bindingy.
+- Bezpecnostni testy API: ridit se OWASP WSTG sekci pro API testing (vcetne GraphQL, pokud bude).
+- Zatezove testy: pro vjezdy/vyjezdy/platby (spike rano/odpoledne), nastrojove je bezny k6 (ma primo API load testing guide).
 
 ### Mock services pro HW
 
-Protože HW prvky mají být zatím reprezentované mocky, doporučený přístup je:
+Protoze HW prvky maji byt zatim reprezentovane mocky, doporuceny pristup je:
 
-- Vytvořit “Device Simulator” (service) schopný:
-  - emitovat MQTT/REST eventy (LPR read, spot occupied/free, barrier state), citeturn10search0turn10search1
-  - přijímat příkazy (open barrier) a vracet potvrzení,
-  - generovat poruchové scénáře (zpoždění, duplikace eventů, out‑of‑order).
+- Vytvorit "Device Simulator" (service) schopny:
+  - emitovat MQTT/REST eventy (LPR read, spot occupied/free, barrier state),
+  - prijimat prikazy (open barrier) a vracet potvrzeni,
+  - generovat poruchove scenare (zpozdeni, duplikace eventu, out-of-order).
 
-Testovací scénáře, které musí být v mocku (aby se odhalily reálné provozní chyby):
+Testovaci scenare, ktere musi byt v mocku (aby se odhalily realne provozni chyby):
 
-- duplikovaný event (ověření idempotence),
-- výpadek senzorů části stání,
-- LPR “misread” (jiná SPZ nebo confidence pod prahem),
-- závora “neotevřela / neuzavřela”,
-- platba potvrzena pozdě (race condition mezi výjezdem a confirm).
+- duplikovany event (overeni idempotence),
+- vypadek senzoru casti stani,
+- LPR "misread" (jina SPZ nebo confidence pod prahem),
+- zavora "neotevrela / neuzavrela",
+- platba potvrzena pozde (race condition mezi vyjezdem a confirm).
 
-### Provozní minimum pro 24/7
+### Provozni minimum pro 24/7
 
-- Health checks: readiness/liveness pro API (DB dostupnost vs start). .NET dokumentace popisuje oddělení readiness a liveness, typicky používané v orchestraci. citeturn5search15turn5search2
-- Bezvýpadkové nasazování: rolling update (orchestrace). citeturn6search8turn6search0
-- Incident “nouzový výjezd”: musí být auditovaný a role‑ověřený. fileciteturn0file0 citeturn1search1
+- Health checks: readiness/liveness pro API (DB dostupnost vs start). .NET dokumentace popisuje oddeleni readiness a liveness, typicky pouzivane v orchestraci.
+- Bezvypadkove nasazovani: rolling update (orchestrace).
+- Incident "nouzovy vyjezd": musi byt auditovany a role-overeny.
 
-### Statistiky, metriky a ukázkové dashboardy
+### Statistiky, metriky a ukazkove dashboardy
 
-Telemetry je volitelná (nezadáno), ale návrh doporučuje připravit základní měření, protože systém je 24/7 a bez metrik se špatně ladí závory, platby a SLA. fileciteturn0file0 citeturn1search19turn1search8
+Telemetry je volitelna (nezadano), ale navrh doporucuje pripravit zakladni mereni, protoze system je 24/7 a bez metrik se spatne ladi zavory, platby a SLA.
 
-Doporučený stack:
+Doporuceny stack:
 
-- entity["organization","OpenTelemetry","observability framework"] pro vendor‑neutral instrumentaci (traces/metrics/logs) a korelaci signálů. citeturn1search19turn1search12turn1search2
-- entity["organization","Prometheus","monitoring system"] metriky – typy metrik (counter/gauge/histogram/summary) jsou definované a mají praktické “do/don’t”. citeturn1search3turn1search20
-- entity["organization","Grafana","observability dashboards"] dashboardy + alerting; má přímou podporu Prometheus datasource. citeturn6search3turn6search19turn6search7
+- OpenTelemetry pro vendor-neutral instrumentaci (traces/metrics/logs) a korelaci signalu.
+- Prometheus metriky - typy metrik (counter/gauge/histogram/summary) jsou definovane a maji prakticke "do/don't".
+- Grafana dashboardy + alerting; ma primou podporu Prometheus datasource.
 
-Co měřit (minimální sada pro “operativní pravdu”):
+Co merit (minimalni sada pro "operativni pravdu"):
 
-- Doménové metriky:
+- Domenove metriky:
   - `parking_sessions_active` (gauge)
   - `parking_entry_denied_total{reason="FULL"}` (counter)
   - `payment_success_total`, `payment_failed_total` (counter)
   - `time_to_open_barrier_ms` (histogram)
   - `lpr_confidence` (histogram/summary)
-- Technické metriky:
+- Technicke metriky:
   - latence API (`http_server_duration`), chybovost 5xx, 4xx, 429 (rate limiting),
   - DB latence query a pool saturation,
-  - fronta HW eventů “received vs processed” a backlog.
+  - fronta HW eventu "received vs processed" a backlog.
 
-Ukázkový dashboard “Provoz v reálném čase” (ASCII náčrt):
+Ukazkovy dashboard "Provoz v realnem case" (ASCII nacrt):
 
 ```
 Obsazenost (posl. 60 min)  [free spots]
-60 |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-40 |■■■■■■■■■■■■■■■■■■■■■■■■■■
-20 |■■■■■■■■■■■■
- 0 +---------------------------------------> čas
+60 |######################################
+40 |##########################
+20 |############
+ 0 +---------------------------------------> cas
 
 Platby (posl. 15 min)  success vs fail
-OK:  ████████████████  128
-FAIL ███               12
+OK:  ################  128
+FAIL ###               12
 
 HW event backlog
 RECEIVED:  5/min
 PROCESSED: 5/min
-BACKLOG:   0  ✅
+BACKLOG:   0  [OK]
 ```
 
-Ukázkový dashboard “Finance a tarif”:
+Ukazkovy dashboard "Finance a tarif":
 
-- obrat denně/týdně/měsíčně, průměrná platba, top výjimky, podíl slev (rezident/zaměstnanec), průměrná doba parkování. fileciteturn0file0
+- obrat denne/tydne/mesicne, prumerna platba, top vyjimky, podil slev (rezident/zamestnanec), prumerna doba parkovani.
 
-## Rizika, otevřená rozhodnutí, roadmap a otázky pro klienta
+## Rizika, otevrena rozhodnuti, roadmap a otazky pro klienta
 
-### Rizika a otevřená rozhodnutí
+### Rizika a otevrena rozhodnuti
 
-Největší rizika jsou “neviditelná” – vznikají z nevyjasněných provozních detailů:
+Nejvetsi rizika jsou "neviditelna" - vznikaji z nevyjasnenych provoznich detailu:
 
-- Offline režim: bez rozhodnutí (edge vs central) nelze garantovat UX a bezpečnost (např. nouzový výjezd, platby při výpadku). fileciteturn0file0
-- Právní rámec SPZ a kamer: bez jasné retence/účelů a informační povinnosti hrozí nesoulad s GDPR; v CZ praxi je SPZ posuzována jako osobní údaj. citeturn2search0turn2search6turn3search12
-- Platby a PCI scope: špatně zvolená integrace může dramaticky zvýšit compliance náklady. citeturn2search3turn2search15
-- Integrace HW: REST/MQTT eventy budou v reálu chybové (duplicitní, opožděné); bez idempotence a event logu se systém “rozjede”. citeturn10search0turn1search1
-- SLA/HA: požadavek 24/7 s minimálními výpadky vyžaduje rozhodnutí o zálohách/PITR, failover, monitoringu. fileciteturn0file0 citeturn0search4turn0search0turn1search19
+- Offline rezim: bez rozhodnuti (edge vs central) nelze garantovat UX a bezpecnost (napr. nouzovy vyjezd, platby pri vypadku).
+- Pravni ramec SPZ a kamer: bez jasne retence/ucelu a informacni povinnosti hrozi nesoulad s GDPR; v CZ praxi je SPZ posuzovana jako osobni udaj.
+- Platby a PCI scope: spatne zvolena integrace muze dramaticky zvysit compliance naklady.
+- Integrace HW: REST/MQTT eventy budou v realu chybove (duplicitni, opozdene); bez idempotence a event logu se system "rozjede".
+- SLA/HA: pozadavek 24/7 s minimalnimi vypadky vyzaduje rozhodnuti o zalohach/PITR, failover, monitoringu.
 
-### Roadmap a odhad práce
+### Roadmap a odhad prace
 
-Odhady jsou nutně v rozsazích (protože počet zařízení, SLA, tarifní pravidla a platební integrace jsou nezadáno). fileciteturn0file0
+Odhady jsou nutne v rozsazich (protoze pocet zarizeni, SLA, tarifni pravidla a platebni integrace jsou nezadano).
 
-Předpoklad: MVP s HW mocky, platbou přes “simulovaný provider”, admin základ. Následně hardening a pilot.
+Predpoklad: MVP s HW mocky, platbou pres "simulovany provider", admin zaklad. Nasledne hardening a pilot.
 
-**Rámcový odhad (rozsahy):**
+**Ramcovy odhad (rozsahy):**
 
-- MVP (core relace + kapacita + terminálový tok + admin minimum + mock HW): **60–110 MD** nebo **160–280 SP**
-- Produkční připravenost (security hardening, monitoring, PITR, load testy, incident režimy): **40–90 MD** nebo **120–240 SP**
-- HW integrace (reálné protokoly, testy s dodavatelem, certifikace, tuning): **30–120 MD** (extrémně závislé na HW)
+- MVP (core relace + kapacita + terminalovy tok + admin minimum + mock HW): **60-110 MD** nebo **160-280 SP**
+- Produkcni pripravenost (security hardening, monitoring, PITR, load testy, incident rezimy): **40-90 MD** nebo **120-240 SP**
+- HW integrace (realne protokoly, testy s dodavatelem, certifikace, tuning): **30-120 MD** (extremne zavisle na HW)
 
 ```mermaid
 gantt
-  title Automatické parkoviště – roadmap (MVP → pilot)
+  title Automaticke parkoviste - roadmap (MVP - pilot)
   dateFormat  YYYY-MM-DD
 
   section Discovery
-  Upřesnění požadavků a rozhodnutí     :a1, 2026-02-16, 2w
+  Upresneni pozadavku a rozhodnuti     :a1, 2026-02-16, 2w
 
   section MVP
-  Datový model + migrace + základ API  :a2, after a1, 2w
-  Stavový automat relace + tarify      :a3, after a2, 3w
+  Datovy model + migrace + zaklad API  :a2, after a1, 2w
+  Stavovy automat relace + tarify      :a3, after a2, 3w
   Mock HW + event ingestion            :a4, after a2, 3w
   Web UI (admin + platba/QR)           :a5, after a2, 4w
 
   section Hardening
-  Bezpečnost + audit + role            :a6, after a5, 2w
-  Zálohy + PITR + obnova drill         :a7, after a5, 2w
+  Bezpecnost + audit + role            :a6, after a5, 2w
+  Zalohy + PITR + obnova drill         :a7, after a5, 2w
   Monitoring/metriky + alerty          :a8, after a5, 2w
 
   section Pilot
-  E2E + zátěž + UAT + provozní runbook :a9, after a8, 2w
-  Pilotní nasazení                     :a10, after a9, 2w
+  E2E + zatez + UAT + provozni runbook :a9, after a8, 2w
+  Pilotni nasazeni                     :a10, after a9, 2w
 ```
 
-### Zásadní otázky pro klienta
+### Zasadni otazky pro klienta
 
-Níže jsou otázky rozdělené dle požadovaných oblastí. Typ odpovědi je záměrně jednoduchý (ano/ne, výběr, krátký text), aby se daly poslat jako formulář.
+Nize jsou otazky rozdelene dle pozadovanych oblasti. Typ odpovedi je zamerne jednoduchy (ano/ne, vyber, kratky text), aby se daly poslat jako formular.
 
-#### Obchodní požadavky
+#### Obchodni pozadavky
 
-- Je cílem jen jedno parkoviště, nebo síť více lokalit? (výběr: 1 / více / nezadáno)
-- Kolik vjezdů a výjezdů má lokalita? (krátký text / číslo / nezadáno)
-- Má být umožněno parkování bez registrace vždy? fileciteturn0file0 (ano/ne)
-- Co přesně znamená “dlouhodobé parkování” (tarif, paušál, abonent)? fileciteturn0file0 (krátký text)
-- Jaké slevové skupiny jsou potřeba (rezidenti, zaměstnanci, další)? fileciteturn0file0 (výběr + krátký text)
-- Jak se řeší sporné situace (LPR špatně přečte, řidič reklamuje)? (krátký text)
-- Je požadovaná podpora více jazyků na terminálu/webu? (výběr: CZ / CZ+EN / jiné)
-- Má být simulace vytížení součástí MVP, nebo později? fileciteturn0file0 (výběr: MVP / později / ne)
+- Je cilem jen jedno parkoviste, nebo sit vice lokalit? (vyber: 1 / vice / nezadano)
+- Kolik vjezdu a vyjezdu ma lokalita? (kratky text / cislo / nezadano)
+- Ma byt umozneno parkovani bez registrace vzdy? (ano/ne)
+- Co presne znamena "dlouhodobe parkovani" (tarif, pausal, abonent)? (kratky text)
+- Jake slevove skupiny jsou potreba (rezidenti, zamestnanci, dalsi)? (vyber + kratky text)
+- Jak se resi sporne situace (LPR spatne precte, ridic reklamuje)? (kratky text)
+- Je pozadovana podpora vice jazyku na terminalu/webu? (vyber: CZ / CZ+EN / jine)
+- Ma byt simulace vytizeni soucasti MVP, nebo pozdeji? (vyber: MVP / pozdeji / ne)
 
 #### Data a integrace
 
-- Budou existovat externí seznamy oprávnění (rezidenti/zaměstnanci) a odkud (HR systém, městská evidence)? fileciteturn0file0 (ano/ne + krátký text)
-- Jaké je očekávané množství relací/den a požadovaná doba uchování relací? (krátký text / nezadáno)
-- Má být export dat automatizovaný (např. denně do S3/Drive) nebo manuální? fileciteturn0file0 (výběr)
-- Požadujete integraci na účetnictví / fakturaci? (ano/ne + krátký text)
+- Budou existovat externi seznamy opravneni (rezidenti/zamestnanci) a odkud (HR system, mestska evidence)? (ano/ne + kratky text)
+- Jake je ocekavane mnozstvi relaci/den a pozadovana doba uchovani relaci? (kratky text / nezadano)
+- Ma byt export dat automatizovany (napr. denne do S3/Drive) nebo manualni? (vyber)
+- Pozadujete integraci na ucetnictvi / fakturaci? (ano/ne + kratky text)
 
 #### UX/FE
 
-- Budou dvě UI: veřejné (platba/QR) a admin (interní síť)? fileciteturn0file0 (ano/ne)
-- Požadujete “kiosk mode” pro terminálový prohlížeč? (ano/ne)
-- Jaké role v admin UI (správce, technik, finance…)? fileciteturn0file0 (výběr + krátký text)
-- Musí být UI dostupné i z mobilu (responsive), nebo čistě desktop? (výběr)
+- Budou dve UI: verejne (platba/QR) a admin (interni sit)? (ano/ne)
+- Pozadujete "kiosk mode" pro terminalovy prohlizec? (ano/ne)
+- Jake role v admin UI (spravce, technik, finance...)? (vyber + kratky text)
+- Musi byt UI dostupne i z mobilu (responsive), nebo ciste desktop? (vyber)
 
 #### Backend/API
 
-- Preferujete event processing synchronně (čekat na výsledek) nebo asynchronně (ACK + zpracování)? (výběr)
-- Jaký je požadovaný maximální čas otevření závory po přečtení SPZ? (krátký text / nezadáno)
-- Je potřeba multi‑tenant (více provozovatelů v jedné instanci)? (ano/ne/nezadáno)
-- Jaké audity jsou povinné (kdo co změnil, kdy, odkud)? fileciteturn0file0 (krátký text)
+- Preferujete event processing synchronne (cekat na vysledek) nebo asynchronne (ACK + zpracovani)? (vyber)
+- Jaky je pozadovany maximalni cas otevreni zavory po precteni SPZ? (kratky text / nezadano)
+- Je potreba multi-tenant (vice provozovatelu v jedne instanci)? (ano/ne/nezadano)
+- Jake audity jsou povinne (kdo co zmenil, kdy, odkud)? (kratky text)
 
-#### Mobilní aplikace
+#### Mobilni aplikace
 
-- Je mobilní aplikace nutná, nebo stačí mobilní web (PWA)? (výběr: PWA / Android / Android+iOS / nezadáno)
-- Pokud Android: má být nativní (Kotlin) nebo hybrid? (výběr: Kotlin / jiné / nezadáno) citeturn12search1turn12search0
-- Má app dělat jen platby, nebo i notifikace (např. “končí čas”) / účty uživatelů? (krátký text)
+- Je mobilni aplikace nutna, nebo staci mobilni web (PWA)? (vyber: PWA / Android / Android+iOS / nezadano)
+- Pokud Android: ma byt nativni (Kotlin) nebo hybrid? (vyber: Kotlin / jine / nezadano)
+- Ma app delat jen platby, nebo i notifikace (napr. "konci cas") / ucty uzivatelu? (kratky text)
 
-#### Nasazení a bezpečnost
+#### Nasazeni a bezpecnost
 
-- Kde musí běžet systém: on‑prem / cloud / hybrid? (výběr)
-- Existuje korporátní IdP (SSO) pro admin přístup? (ano/ne + jaký) citeturn0search15
-- Požadujete VPN/privátní síť pro zařízení (senzory, kamery)? (ano/ne/nezadáno)
-- Retence SPZ a logů (kolik dní/měsíců)? (krátký text) citeturn2search0turn3search12
-- Retence kamerových záznamů (kolik dní) a účel (bezpečnost, reklamace…)? fileciteturn0file0 (krátký text) citeturn2search6
-- Povinné šifrování (at rest / in transit) a požadavky na klíče (KMS/HSM)? (výběr + kr. text)
+- Kde musi bezet system: on-prem / cloud / hybrid? (vyber)
+- Existuje korporatni IdP (SSO) pro admin pristup? (ano/ne + jaky)
+- Pozadujete VPN/privatni sit pro zarizeni (senzory, kamery)? (ano/ne/nezadano)
+- Retence SPZ a logu (kolik dni/mesicu)? (kratky text)
+- Retence kamerovych zaznamu (kolik dni) a ucel (bezpecnost, reklamace...)? (kratky text)
+- Povinne sifrovani (at rest / in transit) a pozadavky na klice (KMS/HSM)? (vyber + kr. text)
 
-#### Testování a provoz
+#### Testovani a provoz
 
-- Požadované SLA/SLO (dostupnost, reakční časy podpory)? (krátký text / nezadáno)
-- Kolik prostředí (dev/stage/prod) a kdo schvaluje nasazení? (krátký text)
-- Má být povinné pravidelné restore testování záloh? (ano/ne) citeturn0search4turn0search0
-- Budou se dělat penetrační testy externě? (ano/ne/nezadáno) citeturn13search7
+- Pozadovane SLA/SLO (dostupnost, reakcni casy podpory)? (kratky text / nezadano)
+- Kolik prostredi (dev/stage/prod) a kdo schvaluje nasazeni? (kratky text)
+- Ma byt povinne pravidelne restore testovani zaloh? (ano/ne)
+- Budou se delat penetracni testy externe? (ano/ne/nezadano)
 
 #### Statistiky / telemetrie
 
-- Jsou statistiky povinné, nebo “nice to have”? fileciteturn0file0 (výběr)
-- Jaké KPI jsou klíčové (vytíženost, průměrná doba, obrat – potvrdit/rozšířit)? fileciteturn0file0 (výběr)
-- Potřebujete realtime dashboard pro technika? (ano/ne)
-- Jak dlouho držet telemetrická data? (krátký text)
+- Jsou statistiky povinne, nebo "nice to have"? (vyber)
+- Jake KPI jsou klicove (vytizenost, prumerna doba, obrat - potvrdit/rozsirit)? (vyber)
+- Potrebujete realtime dashboard pro technika? (ano/ne)
+- Jak dlouho drzet telemetricka data? (kratky text)
 
 #### HW mocky
 
-- Která zařízení budou v MVP mockovaná (LPR, závora, senzory, tabule, terminál)? fileciteturn0file0 (výběr)
-- Jaké protokoly preferuje dodavatel HW (REST, MQTT, jiné)? fileciteturn0file0 (výběr + kr. text)
-- Jaké chybové stavy musí mock umět (duplikace eventů, latency, výpadek)? (výběr)
+- Ktera zarizeni budou v MVP mockovana (LPR, zavora, senzory, tabule, terminal)? (vyber)
+- Jake protokoly preferuje dodavatel HW (REST, MQTT, jine)? (vyber + kr. text)
+- Jake chybove stavy musi mock umet (duplikace eventu, latency, vypadek)? (vyber)
 
-### Formulář pro klienta
+### Formular pro klienta
 
-| Otázka                       | Typ odpovědi | Volby                              |
-| ---------------------------- | ------------ | ---------------------------------- |
-| Počet parkovišť (1 vs více)? | výběr        | 1 / více / nezadáno                |
-| Počet vjezdů/výjezdů?        | krátký text  | číslo                              |
-| Offline režim nutný?         | výběr        | ano / ne / nezadáno                |
-| Platební kanály              | výběr        | karta / mobil / QR / kombinace     |
-| Poskytovatel plateb          | krátký text  | název / nezadáno                   |
-| Retence SPZ                  | krátký text  | např. 30 dní / nezadáno            |
-| Retence kamerových záznamů   | krátký text  | např. 72 hodin / nezadáno          |
-| Role v administraci          | výběr + text | správce / technik / finance / jiné |
-| Slevové skupiny              | výběr + text | rezidenti / zaměstnanci / jiné     |
-| Statistiky povinné?          | výběr        | ano / ne / nice-to-have            |
-| Export dat                   | výběr        | manuální / automat / API           |
-| Nasazení preference          | výběr        | on‑prem / cloud / hybrid           |
-| Mobilní aplikace potřeba?    | výběr        | ne / PWA / Android / Android+iOS   |
-| Protokol HW                  | výběr        | REST / MQTT / jiné                 |
-| SLA/SLO                      | krátký text  | % dostupnosti, reakce              |
+| Otazka | Typ odpovedi | Volby |
+|--------|--------------|-------|
+| Pocet parkovist (1 vs vice)? | vyber | 1 / vice / nezadano |
+| Pocet vjezdu/vyjezdu? | kratky text | cislo |
+| Offline rezim nutny? | vyber | ano / ne / nezadano |
+| Platebni kanaly | vyber | karta / mobil / QR / kombinace |
+| Poskytovatel plateb | kratky text | nazev / nezadano |
+| Retence SPZ | kratky text | napr. 30 dni / nezadano |
+| Retence kamerovych zaznamu | kratky text | napr. 72 hodin / nezadano |
+| Role v administraci | vyber + text | spravce / technik / finance / jine |
+| Slevove skupiny | vyber + text | rezidenti / zamestnanci / jine |
+| Statistiky povinne? | vyber | ano / ne / nice-to-have |
+| Export dat | vyber | manualni / automat / API |
+| Nasazeni preference | vyber | on-prem / cloud / hybrid |
+| Mobilni aplikace potreba? | vyber | ne / PWA / Android / Android+iOS |
+| Protokol HW | vyber | REST / MQTT / jine |
+| SLA/SLO | kratky text | % dostupnosti, reakce |
 
-### Dodatečné otázky pro později
+### Dodatecne otazky pro pozdeji
 
-- Chcete “dynamické ceny” (peak/off‑peak, event pricing) a jak se schvalují?
-- Požadujete integraci na kamerovou analytiku (např. kontrola parkování mimo stání)? fileciteturn0file0
-- Potřebujete právní režim pro sankce/penále a evidenci incidentů?
-- Budou existovat fyzické “předplatné” (RFID/QR karta), nebo jen SPZ?
-- Potřebujete veřejné API pro třetí strany (např. navigace na volná místa)?
+- Chcete "dynamicke ceny" (peak/off-peak, event pricing) a jak se schvaluji?
+- Pozadujete integraci na kamerovou analytiku (napr. kontrola parkovani mimo stani)?
+- Potrebujete pravni rezim pro sankce/penale a evidenci incidentu?
+- Budou existovat fyzicke "predplatne" (RFID/QR karta), nebo jen SPZ?
+- Potrebujete verejne API pro treti strany (napr. navigace na volna mista)?
