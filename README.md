@@ -52,14 +52,3 @@ dotnet run --project hw-simulator/src/HwSimulator.App -- --scenario NormalFlow
 
 - [Architektura systému](docs/architecture/vpsi.md)
 - [Lokální vývoj](docs/guides/local-development.md)
-
-## GitHub Issues
-
-| Issue | Popis |
-|-------|-------|
-| [#1](../../issues/1) | Frontend – inicializace |
-| [#2](../../issues/2) | Databáze – inicializace |
-| [#3](../../issues/3) | Backend – skeleton |
-| [#4](../../issues/4) | HW event ingestion |
-| [#5](../../issues/5) | LPR modul |
-| [#6](../../issues/6) | Architektura |
