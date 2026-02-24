@@ -1,0 +1,8 @@
+openapi: "3.1.0"
+info:
+  title: VPSI Parking API
+  version: "1.0.0"
+  description: API pro systém automatizovaného parkoviště VPSI
+paths: {}
+components:
+  schemas: {}

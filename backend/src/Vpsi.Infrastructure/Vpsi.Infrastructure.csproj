@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vpsi.Application\Vpsi.Application.csproj" />
+    <ProjectReference Include="..\Vpsi.Domain\Vpsi.Domain.csproj" />
+  </ItemGroup>
+
+
+</Project>
