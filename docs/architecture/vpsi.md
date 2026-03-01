@@ -1,5 +1,7 @@
 # Automaticke parkoviste - navrh software, use-casy, datovy model, API, nasazeni, bezpecnost, testovani a otazky pro klienta
 
+> **Vizuální přehled architektury:** Pro diagramy komponent, komunikační mapu a trust boundaries viz [architecture-overview.md](architecture-overview.md).
+
 ## Exekutivni shrnuti
 
 Navrhovany system je **self-service automaticke parkoviste** rizene pres **SPZ (LPR)**, **zavory**, **senzory obsazenosti**, **informacni tabuli u vjezdu** a **platbu pred vyjezdem** (karta / mobil / QR). Zakladni navrh je postaven tak, aby sel rychle dodat jako **MVP s HW mocky**, ale soucasne mel jasnou cestu k produkcni integraci (REST/MQTT, audit, bezpecnost, zalohy, monitoring).

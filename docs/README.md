@@ -13,5 +13,6 @@ Centrální místo pro veškerou projektovou dokumentaci.
 
 ## Klíčové dokumenty
 
-- [Architektura systému](architecture/vpsi.md) – přehled celého systému
+- [Architektonický přehled](architecture/architecture-overview.md) – vizuální mapa komponent a komunikace (start here)
+- [Architektura systému](architecture/vpsi.md) – detailní návrh (use-casy, datový model, API, nasazení)
 - [Lokální vývoj](guides/local-development.md) – nastavení vývojového prostředí
