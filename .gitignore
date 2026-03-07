@@ -1,0 +1,73 @@
+# =====================
+# .NET
+# =====================
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+[Tt]est[Rr]esult*/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+*.nupkg
+*.snupkg
+project.lock.json
+*.nuget.props
+*.nuget.targets
+BenchmarkDotNet.Artifacts/
+
+# =====================
+# Node.js
+# =====================
+node_modules/
+dist/
+*.tsbuildinfo
+.npm
+.eslintcache
+.cache/
+
+# =====================
+# Prostředí
+# =====================
+.env
+.env.local
+.env.*.local
+!.env.example
+!docker/.env.example
+
+# =====================
+# IDE
+# =====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =====================
+# Docker
+# =====================
+docker/data/
+
+# =====================
+# Různé
+# =====================
+*.log
+logs/
+coverage/
+.nyc_output/

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vpsi.Application\Vpsi.Application.csproj" />
+    <ProjectReference Include="..\Vpsi.Contracts\Vpsi.Contracts.csproj" />
+    <ProjectReference Include="..\Vpsi.Infrastructure\Vpsi.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

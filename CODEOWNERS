@@ -1,0 +1,23 @@
+# VPSI – Vlastnictví složek
+# Každá změna v dané složce vyžaduje review od příslušného týmu.
+
+# Backend
+/backend/                @vpsi/backend
+
+# Frontend
+/frontend/               @vpsi/frontend
+
+# Databáze
+/database/               @vpsi/backend
+
+# HW simulátor
+/hw-simulator/           @vpsi/backend
+
+# Kontrakty – vyžadují souhlas obou týmů
+/contracts/              @vpsi/backend @vpsi/frontend
+
+# Dokumentace
+/docs/                   @vpsi/backend @vpsi/frontend
+
+# Docker / infrastruktura
+/docker/                 @vpsi/backend
