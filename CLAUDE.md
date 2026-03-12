@@ -75,7 +75,7 @@ Parking.Contracts    -> Versioned DTOs under V1/ (request/response records)
 
 Dependency direction: `Api → Application → Domain`, `Api → Infrastructure → Application → Domain`, `Api/Application → Contracts`.
 
-All projects target `net9.0` (upgrade to net10.0 when .NET 10 SDK is installed) with `Nullable=enable` and `TreatWarningsAsErrors=true` (set in `backend/Directory.Build.props`).
+All projects target `net10.0` with `Nullable=enable` and `TreatWarningsAsErrors=true` (set in `backend/Directory.Build.props`).
 
 **Application layer** is organized by domain feature: `Sessions/Commands/`, `Payments/Commands/`. Each use case has its own folder with Command + Handler + Validator.
 
@@ -118,7 +118,7 @@ All device events use an `idempotency_key` to prevent duplicate processing. Devi
 
 ## Development Notes
 
-- **SDK**: .NET 9 SDK is currently installed. Upgrade to .NET 10 SDK + bump `Directory.Build.props` + EF Core / Mvc.Testing packages to `10.x` when ready.
+- **SDK**: .NET 10 SDK (10.0.200) is installed. All projects target `net10.0` with EF Core 10.0.4, Npgsql 10.0.0, and Mvc.Testing 10.0.4.
 - **ConfirmPayment**: `ConfirmPaymentCommandHandler` is intentionally a stub (`NotImplementedException`) — requires a `PaymentIntentRepository` to be added.
 - **Swagger UI**: Available at `http://localhost:5261/scalar/v1` (Scalar) in Development mode.
 - **HW Simulator**: communicates with the backend at `POST /api/device-events` (note: the planned contract uses `/api/v1/hw/events` — update before wiring up).
