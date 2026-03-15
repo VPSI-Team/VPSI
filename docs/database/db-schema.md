@@ -224,20 +224,20 @@ Schema obsahuje **11 tabulek** rozdelenych do tri kategorii:
 
 | Nazev | Tabulka | Sloupce | Ucel |
 |-------|---------|---------|------|
-| `ix_parking_spot_lot` | `parking_spot` | `parking_lot_id` | Vyhledani stani pro parkoviste |
-| `ix_parking_session_active` | `parking_session` | `parking_lot_id, status, entry_at DESC` | Aktivni relace parkoviste (obsazenost) |
-| `ix_parking_session_vehicle` | `parking_session` | `vehicle_id, status` | Vyhledani relaci pro vozidlo |
-| `ix_parking_session_tariff` | `parking_session` | `tariff_id` | Vazba na tarif |
-| `ix_payment_intent_session` | `payment_intent` | `parking_session_id` | Platby pro relaci |
-| `ix_device_lot` | `device` | `parking_lot_id` | Zarizeni na parkovisti |
-| `ix_device_event_device_occurred` | `device_event` | `device_id, occurred_at DESC` | Historie eventu zarizeni (per partition) |
-| `ix_device_event_idempotency` | `device_event` | `device_id, idempotency_key` | UNIQUE — deduplikace eventu (per partition) |
-| `ix_device_event_processing` | `device_event` | `processing_status, created_at` | Fronta ke zpracovani |
-| `ix_audit_log_created_at` | `audit_log` | `created_at DESC` | Casove razeni auditu (per partition) |
-| `ix_audit_log_entity` | `audit_log` | `entity_type, entity_id` | Dohledani zmen konkretni entity |
-| `ix_tariff_lot_active` | `tariff` | `parking_lot_id, is_active, valid_from` | Vyhledani platneho tarifu |
-| `ix_tariff_rule_tariff` | `tariff_rule` | `tariff_id, priority` | Pravidla tarifu v poradi priority |
-| `ix_vehicle_plate_hash` | `vehicle` | `plate_hash` | UNIQUE — rychle vyhledani vozidla bez expozice SPZ |
+| `ix_session_active` | `parking_session` | `parking_lot_id, status, entry_at DESC` | Aktivni relace parkoviste (obsazenost) |
+| `ix_session_vehicle` | `parking_session` | `vehicle_id, entry_at DESC` | Historie relaci pro vozidlo |
+| `ix_device_event_device_time` | `device_event` | `device_id, occurred_at DESC` | Historie eventu zarizeni (per partition) |
+| `ix_device_event_plate` | `device_event` | `plate_number, occurred_at DESC` | Vyhledani eventu podle SPZ (partial: WHERE plate_number IS NOT NULL) |
+| `ix_device_event_idempotency` | `device_event` | `device_id, idempotency_key` | Deduplikace eventu |
+| `ix_payment_provider_ref` | `payment_intent` | `provider_ref` | Lookup plateb od providera (partial: WHERE provider_ref IS NOT NULL) |
+| `ix_payment_session` | `payment_intent` | `parking_session_id, created_at DESC` | Platby pro relaci |
+| `ix_tariff_lot_valid` | `tariff` | `parking_lot_id, valid_from, valid_to` | Aktivni tarify parkoviste (partial: WHERE is_active = true) |
+| `ix_audit_log_entity` | `audit_log` | `entity_type, entity_id, created_at DESC` | Dohledani zmen konkretni entity |
+| `ix_audit_log_user` | `audit_log` | `app_user_id, created_at DESC` | Akce uzivatele (partial: WHERE app_user_id IS NOT NULL) |
+| `ix_device_event_payload_gin` | `device_event` | `payload` (GIN) | Fulltextove prohledavani JSON payloadu |
+| `ix_audit_log_old_values_gin` | `audit_log` | `old_values` (GIN) | Prohledavani puvodních hodnot |
+| `ix_audit_log_new_values_gin` | `audit_log` | `new_values` (GIN) | Prohledavani novych hodnot |
+| `ix_*_active` | 6 tabulek | `id` | Partial indexy `WHERE NOT is_deleted` na soft-delete tabulkach |
 
 ---
 
@@ -273,10 +273,13 @@ CREATE TABLE device_event_2026_02 PARTITION OF device_event
 CREATE TABLE device_event_2026_12 PARTITION OF device_event
     FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
 
+-- Vychozi partition pro data mimo rok 2026
+CREATE TABLE device_event_default PARTITION OF device_event DEFAULT;
+
 -- audit_log: stejna strategie
 CREATE TABLE audit_log (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
-    app_user_id uuid NOT NULL REFERENCES app_user(id),
+    app_user_id uuid,  -- logicky FK na app_user (bez constraint — partitioned tabulka); null pro systemove akce
     action text NOT NULL,
     -- ... dalsi sloupce
     created_at timestamptz NOT NULL,
@@ -397,13 +400,16 @@ Testovaci data v `database/seed/` jsou navrzena pro lokalni vyvoj a integracni t
 
 | Entita | Obsah | Poznamka |
 |--------|-------|----------|
-| `parking_lot` | 1 parkoviste "VPSI Demo Parking" | Kapacita 120 mist, timezone `Europe/Prague` |
-| `parking_spot` | 120 stani | 100x STANDARD, 10x EV, 8x ZTP, 2x MOTORCYCLE |
+| `parking_lot` | 1 parkoviste "Parkoviste Centrum" | Kapacita 100 mist, timezone `Europe/Prague` |
+| `parking_spot` | 100 stani | 80x STANDARD, 10x EV, 10x ZTP |
 | `device` | 5 zarizeni | 2x LPR (vjezd/vyjezd), 2x BARRIER, 1x SENSOR |
-| `tariff` | 1 aktivni tarif | Platny od 2026-01-01 |
-| `tariff_rule` | 3 pravidla | FREE_MINUTES (15 min), PER_HOUR (40 CZK), DAILY_CAP (300 CZK) |
-| `vehicle` | 5 testovacich vozidel | Ruznorode SPZ pro scenare |
-| `app_user` | 3 uzivatele | 1x ADMIN, 1x TECHNICIAN, 1x FINANCE |
+| `tariff` | 2 tarify | Zakladni (40 CZK/h) a nocni (20 CZK/h), platne od 2026-01-01 |
+| `tariff_rule` | 5 pravidel | FREE_MINUTES (15 min), PER_HOUR (40 CZK), DAILY_CAP (200/100 CZK), NIGHT_RATE (20 CZK) |
+| `vehicle` | 2 testovaci vozidla | 1AB2345 (bez skupiny), 2CD6789 (EMPLOYEE) |
+| `app_user` | 2 uzivatele | 1x ADMIN, 1x TECHNICIAN |
+| `parking_session` | 2 relace | 1x ACTIVE (1AB2345), 1x CLOSED s platbou (2CD6789) |
+| `payment_intent` | 1 platba | CAPTURED, 100 CZK kartou |
+| `device_event` | 6 udalosti | LPR_READ a BARRIER_OPEN pro vjezdy/vyjezdy |
 
 ### Vazba na HW simulator
 
