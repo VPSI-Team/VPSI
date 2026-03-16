@@ -1,6 +1,0 @@
-@Vpsi.Api_HostAddress = http://localhost:5261
-
-GET {{Vpsi.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
